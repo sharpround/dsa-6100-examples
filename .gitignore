@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.pdf
+*.html
+*.shtml
+*.zip
+*.docx
+*.gz
+*.dct
+*.dat
+.ipynb_checkpoints*
