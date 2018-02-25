@@ -1,5 +1,5 @@
 ---
-title: "Bayes ch 7"
+title: "Think Bayes, Chapter 7"
 output:
   pdf_document: default
   html_notebook: default
@@ -67,6 +67,7 @@ ggplot(data = df, aes(x = t.min, y = cdf.t)) +
 
 Exercise for the reader: Write a function that takes the pmf or pdf of times between buses and returns a likelihood of experiencing a given wait-time. Try it with a log-normal distribution for times.
 
+\newpage
 
 ## Exercise 7.2
 
@@ -93,6 +94,8 @@ $$
 P(\lambda | \mbox{ 3 people}) \propto  \frac{\lambda e^{-\lambda} }{2} P_0(\lambda)
 $$
 and then substitute $t = \lambda/r$.
+
+\newpage
 
 ## Exercise 7.3
 
@@ -154,6 +157,7 @@ ggplot(data = df.post, aes(x = n_traps, y = p_traps)) +
   labs(x = "number of traps sprung", y = "probability", title = "traps triggered after 2 days")
 ```
 
+\newpage
 
 ## Exercise 7.4
 

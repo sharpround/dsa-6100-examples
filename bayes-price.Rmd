@@ -1,9 +1,0 @@
----
-title: "Bayesian Price is Right"
-output: html_notebook
----
-
-```{r}
-plot(cars)
-```
-
