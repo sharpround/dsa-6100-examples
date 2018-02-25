@@ -1,0 +1,168 @@
+---
+title: "Bayes ch 7"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r, include=FALSE}
+library(ggplot2)
+
+theme_set(theme_minimal())
+
+trapz = function(x, y) 
+{ # computes the integral of y with respect to x using trapezoidal integration. 
+  idx = 2:length(x)
+  return (as.double( (x[idx] - x[idx-1]) %*% (y[idx] + y[idx-1])) / 2)
+}
+```
+
+
+## Exercise 7.1
+
+#### Problem
+If buses arrive at a bus stop every 20 minutes, and you arrive at the bus stop at a random time, your wait time until the bus arrives is uniformly distributed from 0 to 20 minutes.
+
+But in reality, there is variability in the time between buses. Suppose you are waiting for a bus, and you know the historical distribution of time between buses. Compute your distribution of wait times.
+
+#### Solution
+To set up the model, we assume that the pdf of times between buses is some function, $f(y)$, where $y$ is the time. Assuming that your likelihood is uniformly random, then the probability of arriving during a time window of length $y_i$ is given by
+
+$$
+P(y_i) = \frac{y_i f(y_i)}{\sum y_i f(y_i)}
+$$
+and the probability of having an observed wait time $t$ given the time window is
+$$
+P(t|y_i) = \frac{1}{y_i}
+$$
+Putting the two together, the likelihood of waiting for time $t$ is given by
+
+$$
+P(t) = P(t|y_i)P(y_i) = \sum\left\{ \begin{array}{rl}
+  \frac{f(y_i)}{\sum y_i f(y_i)} &\mbox{ if $0 \leq t < y_i$} \\
+  0 &\mbox{ otherwise}
+  \end{array} \right.
+$$
+
+```{r}
+p5 <- 1/7.5 # for wait times < 5 min
+p10 <- 0.5/7.5 # for wait times 5 min < t < 10 min
+dt <- 0.1
+
+t.min <- seq(0, 10-dt, dt) ## list of wait times, in minutes
+P.t <- rep(0, length(t.min)) 
+df <- data.frame(t.min, P.t)
+
+df$P.t[t.min < 5] <- p5
+df$P.t[t.min >= 5 & t.min <= 10] <- p10
+df$cdf.t <- cumsum(df$P.t*dt)
+```
+
+
+```{r, echo=FALSE, fig.height=3, fig.width=4}
+ggplot(data = df, aes(x = t.min, y = cdf.t)) +
+  geom_line(size = 1.5) +
+  labs(x = "wait time (min)", y = "cdf")
+```
+
+Exercise for the reader: Write a function that takes the pmf or pdf of times between buses and returns a likelihood of experiencing a given wait-time. Try it with a log-normal distribution for times.
+
+
+## Exercise 7.2
+
+#### Problem
+
+Suppose that passengers arriving at the bus stop are well-modeled by a Poisson process with parameter $\lambda$. If you arrive at the stop and find 3 people waiting, what is your posterior distribution for the time since the last bus arrived.
+
+#### Solution
+We want to determine the likelihood of observing 3 people waiting given each hypothesis, which we can then use to update beliefs. Our hypotheses are the amuont of time elapsed since the last bus.
+
+For a Poisson process, the probability of observing $k$ events in a given time interval is
+
+$$
+P(k) = e^{-rt} \frac{rtk}{k!}
+$$
+where $r$ is the rate of events, $t$ is the time, and $r = \lambda/t_0$. So our posteriors become
+
+$$
+P(t | \mbox{ 3 people}) \propto P(\mbox{3 people} | t) \propto \frac{rt e^{-rt}}{2} P_0(t)
+$$
+Where $P_0(t)$ is our prior. Equivalently, we can write it in terms of $\lambda$, in which case we get
+
+$$
+P(\lambda | \mbox{ 3 people}) \propto  \frac{\lambda e^{-\lambda} }{2} P_0(\lambda)
+$$
+and then substitute $t = \lambda/r$.
+
+## Exercise 7.3
+
+#### Problem
+Suppose that you are an ecologist sampling the insect population in a new environment. You deploy 100 traps in a test area and come back the next day to check on them. You find that 37 traps have been triggered, trapping an insect inside. Once a trap triggers, it cannot trap another insect until it has been reset. If you reset the traps and come back in two days, how many traps do you expect to find triggered? Compute a posterior predictive distribution for the number of traps.
+
+#### Solution
+We can model each trap as a Bernoulli process, and each day is the opportunity for another trial. Just as for the Euro problem, we can model this with the beta distrubution (see section 4.5). To do this, we must assume that each trial is independent, which implies that that insect population is large enough that each time an insect is trapped, it does not noticeably impact the likelihood of an insect being trapped later in a different trap.
+
+If we were legit researchers, we would be able to construct a somewhat-informed prior, as an ecologist would have some expertise with these insects. However, we will use the most conservative, least-informed prior--a simple uniform distribution. After the first day, our posterior distribution is a beta distribution with $\alpha = 38$ and $\beta = 74$.
+
+```{r, echo=FALSE, fig.width=4, fig.height=3}
+h <- seq(0, 1, 0.01)
+l <- dbeta(h, 38, 74)
+df <- data.frame(h, l)
+
+ggplot(df, aes(x = h, y = l)) +
+  geom_line(size = 1.5) +
+  labs(x = "probability of insect trapped each day", y = "degree of belief")
+```
+
+To calculate the number of traps after two days, we need to take that distribution and calculate the likelihood that a trap has *not* been triggered for two trials in a row. Then we can subtract that from 1 to find the likelihood that a trap has been triggered. Here, we need to assume both that each trap is independent *and* that each day is independent. 
+
+```{r}
+df$h2 <- 1 - (1 - df$h)^2
+
+ggplot(df, aes(x = h2, y = l)) +
+  geom_line(size = 1.5) +
+  labs(x = "probability of insect trapped after 2 days", y = "degree of belief")
+```
+
+Now, each of these hypotheses represents a binomial distribution, where the probability of "success", $p$, is our hypothesis and the number of trials, $n$, is the number of traps.
+
+```{r}
+n_trials <- 100
+n_hypos <-  dim(df)[1]
+
+P <- matrix(0, nrow = n_hypos, ncol = n_trials+1)
+for (ii in seq(1, n_hypos)) {
+  P[ii,] <- dbinom(seq(0, n_trials), n_trials, df$h2[ii])
+}
+
+P <- data.frame(P, row.names = df$h2)
+colnames(P) <- seq(0, n_trials)
+
+n_traps <- seq(0, 100)
+p_traps <- rep(0, n_trials+1)
+for (ii in seq(0, n_trials)){
+  p_traps[ii+1] <-  sum(df$l * P[,ii+1])/100
+}
+
+df.post <- data.frame(n_traps, p_traps)
+```
+
+
+```{r, echo=FALSE}
+ggplot(data = df.post, aes(x = n_traps, y = p_traps)) +
+  geom_line(size = 1.5) +
+  labs(x = "number of traps sprung", y = "probability", title = "traps triggered after 2 days")
+```
+
+
+## Exercise 7.4
+
+#### Problem
+Suppose you are the manager of an apartment building with 100 light bulbs in common areas. It is your responsibility to replace light bulbs when they break.
+
+On January 1, all 100 bulbs are working. When you inspect them on February 1, you find 3 light bulbs out. If you come back on April 1, how many light bulbs do you expect to find broken?
+
+In the previous exercise, you could reasonably assume that an event is equally likely at any time. For light bulbs, the likelihood of failure depends on the age of the bulb. Specifically, old bulbs have an increasing failure rate due to evaporation of
+the filament.
+
+#### Solution
